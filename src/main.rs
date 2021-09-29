@@ -87,12 +87,25 @@ struct Task {
     info: String,
 }
 
-impl Task {
-    fn into_list_item(&self) -> ListItem {
-        let box_token: &str = match self.status {
+#[cfg(target_os = "windows")]
+fn get_status_char(status: &Status) -> &str {
+    match status {
+            Status::Todo => "[ ]",
+            Status::Done => "[D]",
+        }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_status_char(status: &Status) -> &str {
+    match status {
             Status::Todo => "☐",
             Status::Done => "☑",
-        };
+        }
+}
+
+impl Task {
+    fn into_list_item(&self) -> ListItem {
+        let box_token: &str = get_status_char(&self.status);
 
         let span = Span::raw(format!("{} {}", box_token, self.info));
         ListItem::new(span)
