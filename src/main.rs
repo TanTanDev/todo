@@ -295,7 +295,11 @@ fn main() -> Result<(), io::Error> {
                             }
                             KeyCode::Char('q') => {
                                 save_today(&tasks, &today_path);
+<<<<<<< HEAD
                                 let _ = crossterm::terminal::disable_raw_mode();
+=======
+                                crossterm::terminal::disable_raw_mode().unwrap();
+>>>>>>> 5bf935a4b03e47e605e3fed175b0671fa5f76ad6
                                 return Ok(());
                             }
                             _ => {}
