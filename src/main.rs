@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
-use termion::event::Key;
-use termion::raw::IntoRawMode;
-use tui::backend::Backend;
-use tui::backend::TermionBackend;
+use crossterm::{
+    event::KeyCode,
+    terminal::enable_raw_mode,
+};
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Style};
 use tui::text::{Span, Text};
 use tui::widgets::{Block, Borders};
 use tui::widgets::{List, ListItem, Paragraph};
-use tui::Terminal;
+use tui::{Terminal, backend::CrosstermBackend};
 
 use chrono::prelude::*;
 mod events;
@@ -106,8 +106,8 @@ fn save_today(tasks: &Vec<Task>, path: &str) {
         date: Some(local),
     };
     let serialized = serde_json::to_string(&today).unwrap();
-    let save_result = std::fs::write(path, serialized);
-    println!("tried saving file {}, result: {:?}", path, save_result);
+    let _save_result = std::fs::write(path, serialized);
+    // println!("tried saving file {}, result: {:?}", path, _save_result);
 }
 
 fn main() -> Result<(), io::Error> {
@@ -120,7 +120,7 @@ fn main() -> Result<(), io::Error> {
         "daily_occuring.json"
     );
     let today_path = format!("{}/{}", working_path.to_str().unwrap(), "today.json");
-    println!("files path: {:?}", today_path);
+    // println!("files path: {:?}", today_path);
 
     let file_result = std::fs::read_to_string(&daily_path);
     let weekday_tasks = match file_result {
@@ -132,8 +132,8 @@ fn main() -> Result<(), io::Error> {
             // return default daily occuring data
             let default_weekday_tasks = WeekdayTasks::default();
             let serialized = serde_json::to_string(&default_weekday_tasks).unwrap();
-            let save_result = std::fs::write(&daily_path, serialized);
-            println!("saved to daily_occuring? {:?}", save_result);
+            let _save_result = std::fs::write(&daily_path, serialized);
+            // println!("saved to daily_occuring? {:?}", _save_result);
             default_weekday_tasks
         }
     };
@@ -169,10 +169,12 @@ fn main() -> Result<(), io::Error> {
         }
     }
 
-    let stdout = io::stdout().into_raw_mode()?;
-    let mut backend = TermionBackend::new(stdout);
-    let _ = backend.clear();
+    //let stdout = io::stdout().into_raw_mode()?;
+    enable_raw_mode().unwrap();
+    let stdout = io::stdout();
+    let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    terminal.clear().unwrap();
 
     let mut selected: i32 = 0;
     let events = Events::new();
@@ -242,34 +244,34 @@ fn main() -> Result<(), io::Error> {
                 match app_mode {
                     AppMode::Edit => {
                         match input {
-                            Key::Char('j') => {
+                            KeyCode::Char('j') => {
                                 selected += 1;
                                 if selected as usize >= tasks.len() {
                                     selected = 0;
                                 }
                             }
-                            Key::Char('k') => {
+                            KeyCode::Char('k') => {
                                 selected -= 1;
                                 if selected < 0 {
                                     selected = (tasks.len() - 1) as i32;
                                 }
                             }
-                            Key::Char('l') => {
+                            KeyCode::Char('l') => {
                                 // modify the current selected task
                                 let mut task = tasks.get_mut(selected as usize).unwrap();
                                 task.status = Status::Done;
                             }
-                            Key::Char('h') => {
+                            KeyCode::Char('h') => {
                                 // modify the current selected task
                                 let mut task = tasks.get_mut(selected as usize).unwrap();
                                 task.status = Status::Todo;
                             }
                             // enter insert mode
-                            Key::Char('i') => {
+                            KeyCode::Char('i') => {
                                 // modify the current selected task
                                 app_mode = AppMode::Insert;
                             }
-                            Key::Char('x') => {
+                            KeyCode::Char('x') => {
                                 // remove entry
                                 if selected >= 0 && selected < tasks.len() as i32 {
                                     tasks.remove(selected as usize);
@@ -278,7 +280,7 @@ fn main() -> Result<(), io::Error> {
                                     }
                                 }
                             }
-                            Key::Char('q') => {
+                            KeyCode::Char('q') => {
                                 save_today(&tasks, &today_path);
                                 return Ok(());
                             }
@@ -287,11 +289,12 @@ fn main() -> Result<(), io::Error> {
                     }
                     AppMode::Insert => {
                         match input {
-                            Key::Esc => {
+                            KeyCode::Esc => {
                                 app_mode = AppMode::Edit;
                                 input_string.clear();
                             }
-                            Key::Char('\n') => {
+                            KeyCode::Enter => {
+                            //KeyCode::Char('\n') => {
                                 // submit
                                 app_mode = AppMode::Edit;
                                 tasks.push(Task {
@@ -299,10 +302,10 @@ fn main() -> Result<(), io::Error> {
                                     info: input_string.drain(..).collect(),
                                 });
                             }
-                            Key::Backspace => {
+                            KeyCode::Backspace => {
                                 input_string.pop();
                             }
-                            Key::Char(c) => {
+                            KeyCode::Char(c) => {
                                 input_string.push(c);
                             }
                             _ => {}

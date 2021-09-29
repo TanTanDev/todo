@@ -1,10 +1,12 @@
-use std::io;
+use std::time::Instant;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use termion::event::Key;
-use termion::input::TermRead;
+use crossterm::event::{self, KeyCode, Event as CEvent};
+
+//use termion::event::Key;
+//use termion::input::TermRead;
 
 pub enum Event<I> {
     Input(I),
@@ -14,9 +16,8 @@ pub enum Event<I> {
 /// A small event handler that wrap termion input and tick events. Each event
 /// type is handled in its own thread and returned to a common `Receiver`
 pub struct Events {
-    rx: mpsc::Receiver<Event<Key>>,
+    rx: mpsc::Receiver<Event<KeyCode>>,
     _input_handle: thread::JoinHandle<()>,
-    _tick_handle: thread::JoinHandle<()>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -42,34 +43,31 @@ impl Events {
         let _input_handle = {
             let tx = tx.clone();
             thread::spawn(move || {
-                let stdin = io::stdin();
-                for evt in stdin.keys() {
-                    if let Ok(key) = evt {
-                        if let Err(err) = tx.send(Event::Input(key)) {
-                            eprintln!("{}", err);
-                            return;
+                //let stdin = io::stdin();
+                let mut last_tick = Instant::now();
+                loop {
+                    let timeout = config.tick_rate
+                        .checked_sub(last_tick.elapsed())
+                        .unwrap_or_else(|| Duration::from_secs(0));
+                    if event::poll(timeout).unwrap() {
+                        if let CEvent::Key(key) = event::read().unwrap() {
+                            tx.send(Event::Input(key.code)).unwrap();
                         }
                     }
+                    if last_tick.elapsed() >= config.tick_rate {
+                        tx.send(Event::Tick).unwrap();
+                        last_tick = Instant::now();
+                    }
                 }
-            })
-        };
-        let _tick_handle = {
-            thread::spawn(move || loop {
-                if let Err(err) = tx.send(Event::Tick) {
-                    eprintln!("{}", err);
-                    break;
-                }
-                thread::sleep(config.tick_rate);
-            })
-        };
+            }
+        )};
         Events {
             rx,
             _input_handle,
-            _tick_handle,
         }
     }
 
-    pub fn next(&self) -> Result<Event<Key>, mpsc::RecvError> {
+    pub fn next(&self) -> Result<Event<KeyCode>, mpsc::RecvError> {
         self.rx.recv()
     }
 }
