@@ -295,6 +295,7 @@ fn main() -> Result<(), io::Error> {
                             }
                             KeyCode::Char('q') => {
                                 save_today(&tasks, &today_path);
+                                let _ = crossterm::terminal::disable_raw_mode();
                                 return Ok(());
                             }
                             _ => {}
@@ -328,5 +329,4 @@ fn main() -> Result<(), io::Error> {
             }
         }
     }
-    crossterm::terminal::disable_raw_mode();
 }
