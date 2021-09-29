@@ -328,4 +328,5 @@ fn main() -> Result<(), io::Error> {
             }
         }
     }
+    crossterm::terminal::disable_raw_mode();
 }
